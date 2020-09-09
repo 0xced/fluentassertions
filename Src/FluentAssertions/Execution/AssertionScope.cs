@@ -85,6 +85,11 @@ namespace FluentAssertions.Execution
         public string Context { get; set; }
 
         /// <summary>
+        /// Gets the number of assertions that were executed since the AssertionScope was created and the last time <see cref="Discard"/> was called.
+        /// </summary>
+        public int AssertionCount { get; private set; }
+
+        /// <summary>
         /// Gets the current thread-specific assertion scope.
         /// </summary>
         public static AssertionScope Current
@@ -178,6 +183,8 @@ namespace FluentAssertions.Execution
 
         public AssertionScope ForCondition(bool condition)
         {
+            AssertionCount++;
+
             succeeded = condition;
 
             return this;
