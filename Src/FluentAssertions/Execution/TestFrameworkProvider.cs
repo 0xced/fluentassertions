@@ -9,29 +9,24 @@ namespace FluentAssertions.Execution;
 /// <summary>
 /// Implements a wrapper around all supported test frameworks to throw the correct assertion exception.
 /// </summary>
-internal class TestFrameworkProvider
+internal class TestFrameworkProvider(Configuration configuration)
 {
     #region Private Definitions
 
     private static readonly Dictionary<string, ITestFramework> Frameworks = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["mspec"] = new MSpecFramework(),
-        ["nunit"] = new NUnitTestFramework(),
-        ["mstestv2"] = new MSTestFrameworkV2(),
-        ["xunit2"] = new XUnitTestFramework("xunit.assert"),
-        ["xunit3"] = new XUnitTestFramework("xunit.v3.assert"), // Keep XUnitTestFramework last as it uses a try/catch approach
-    };
+        ["mspec"] = new LateBoundTestFramework("Machine.Specifications", "Machine.Specifications.SpecificationException"),
+        ["nunit"] = new LateBoundTestFramework("nunit.framework", "NUnit.Framework.AssertionException"),
+        ["mstestv2"] = new LateBoundTestFramework("Microsoft.VisualStudio.TestPlatform.TestFramework", "Microsoft.VisualStudio.TestTools.UnitTesting.AssertFailedException"),
 
-    private readonly Configuration configuration;
+        // Keep xUnit last as it's likely to go through the catch path in the IsAvailable implementation
+        ["xunit2"] = new LateBoundTestFramework("xunit.assert", "Xunit.Sdk.XunitException", loadAssembly: true),
+        ["xunit3"] = new LateBoundTestFramework("xunit.v3.assert", "Xunit.Sdk.XunitException", loadAssembly: true),
+    };
 
     private ITestFramework testFramework;
 
     #endregion
-
-    public TestFrameworkProvider(Configuration configuration)
-    {
-        this.configuration = configuration;
-    }
 
     [DoesNotReturn]
     public void Throw(string message)

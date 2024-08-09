@@ -1,41 +1,67 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace FluentAssertions.Execution;
 
-internal abstract class LateBoundTestFramework : ITestFramework
+internal class LateBoundTestFramework(string assemblyName, string exceptionFullName, bool loadAssembly = false) : ITestFramework
 {
-    private Assembly assembly;
+    private Func<string, Exception> exceptionFactory;
+
+    public string AssemblyName => assemblyName;
 
     [DoesNotReturn]
-    public void Throw(string message)
-    {
-        Type exceptionType = assembly.GetType(ExceptionFullName);
-
-        if (exceptionType is null)
-        {
-            throw new NotSupportedException(
-                $"Failed to create the assertion exception for the current test framework: \"{ExceptionFullName}, {assembly.FullName}\"");
-        }
-
-        throw (Exception)Activator.CreateInstance(exceptionType, message);
-    }
+    public void Throw(string message) => throw exceptionFactory(message);
 
     public bool IsAvailable
     {
         get
         {
-            string prefix = AssemblyName + ",";
-
-            assembly = Array.Find(AppDomain.CurrentDomain
-                .GetAssemblies(), a => a.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-
-            return assembly is not null;
+            var assembly = GetAssembly();
+            var exceptionType = assembly?.GetType(exceptionFullName);
+            exceptionFactory = GetExceptionFactory(exceptionType);
+            return exceptionFactory is not null;
         }
     }
 
-    protected internal abstract string AssemblyName { get; }
+    private Assembly GetAssembly()
+    {
+        var assembly = Array.Find(AppDomain.CurrentDomain.GetAssemblies(), a => a.GetName().Name == assemblyName);
+        if (assembly is null && loadAssembly)
+        {
+            try
+            {
+                return Assembly.Load(new AssemblyName(assemblyName));
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
-    protected abstract string ExceptionFullName { get; }
+        return assembly;
+    }
+
+    private static Func<string, Exception> GetExceptionFactory(Type exceptionType)
+    {
+        if (exceptionType is null)
+        {
+            return null;
+        }
+
+        var constructor = exceptionType.GetConstructor([typeof(string)])
+            ?? throw new MissingMemberException(exceptionType.FullName, ".ctor");
+        var parameter = Expression.Parameter(typeof(string), "m");
+        var expression = Expression.Lambda<Func<string, Exception>>(Expression.New(constructor, parameter), parameter);
+
+        try
+        {
+            return expression.Compile();
+        }
+        catch
+        {
+            return message => (Exception)Activator.CreateInstance(exceptionType, message);
+        }
+    }
 }
