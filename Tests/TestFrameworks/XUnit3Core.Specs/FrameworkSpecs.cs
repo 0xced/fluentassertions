@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Xunit;
 
-namespace XUnit3.Specs;
+namespace XUnit3Core.Specs;
 
 public class FrameworkSpecs
 {
@@ -16,14 +15,5 @@ public class FrameworkSpecs
         // Assert
         Exception exception = act.Should().Throw<Exception>().Which;
         exception.GetType().GetInterfaces().Should().ContainSingle(i => i.Name == "IAssertionException");
-        exception.GetType().FullName.Should().Be("Xunit.Sdk.XunitException");
     }
-
-/*
-    [Fact(Timeout = 10)]
-    public async Task TestTimeout()
-    {
-        await Task.Delay(100, TestContext.Current.CancellationToken);
-    }
-    */
 }

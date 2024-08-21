@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -34,7 +35,7 @@ internal class LateBoundTestFramework(string assemblyName, string exceptionFullN
             {
                 return Assembly.Load(new AssemblyName(assemblyName));
             }
-            catch
+            catch (FileNotFoundException)
             {
                 return null;
             }
