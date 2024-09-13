@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
+using JetBrains.Annotations;
 
 namespace FluentAssertions.Execution;
 
@@ -10,6 +11,7 @@ internal abstract class LateBoundTestFramework : ITestFramework
 {
     private readonly bool loadAssembly;
     private Func<string, Exception> exceptionFactory;
+    private Func<string, Exception> timeoutExceptionFactory;
 
     protected LateBoundTestFramework(bool loadAssembly = false)
     {
@@ -18,7 +20,15 @@ internal abstract class LateBoundTestFramework : ITestFramework
     }
 
     [DoesNotReturn]
-    public void Throw(string message) => throw exceptionFactory(message);
+    public void Throw(string message)
+    {
+        if (message.StartsWith("Expected ", StringComparison.Ordinal) && message.Contains(" to complete within ", StringComparison.Ordinal))
+        {
+            throw timeoutExceptionFactory(message);
+        }
+
+        throw exceptionFactory(message);
+    }
 
     public bool IsAvailable
     {
@@ -29,6 +39,10 @@ internal abstract class LateBoundTestFramework : ITestFramework
             exceptionFactory = exceptionType != null
                 ? GetExceptionFactory(exceptionType)
                 : _ => throw new InvalidOperationException($"{GetType().Name} is not available");
+            var timeoutExceptionType = TimeoutExceptionFullName != null ? assembly?.GetType(TimeoutExceptionFullName) : null;
+            timeoutExceptionFactory = timeoutExceptionType != null
+                ? GetExceptionFactory(timeoutExceptionType)
+                : message => new AssertionTimeoutException(message);
             return exceptionType is not null;
         }
     }
@@ -71,4 +85,7 @@ internal abstract class LateBoundTestFramework : ITestFramework
     protected internal abstract string AssemblyName { get; }
 
     protected abstract string ExceptionFullName { get; }
+
+    [CanBeNull]
+    protected virtual string TimeoutExceptionFullName => null;
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace FluentAssertions.Execution;
@@ -18,6 +19,11 @@ internal class FallbackTestFramework : ITestFramework
     [DoesNotReturn]
     public void Throw(string message)
     {
+        if (message.StartsWith("Expected ", StringComparison.Ordinal) && message.Contains(" to complete within ", StringComparison.Ordinal))
+        {
+            throw new AssertionTimeoutException(message);
+        }
+
         throw new AssertionFailedException(message);
     }
 }
